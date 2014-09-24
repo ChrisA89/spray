@@ -19,7 +19,7 @@ package spray.can
 import spray.http.HttpData
 import akka.io.Tcp
 import scala.annotation.tailrec
-import akka.io.Tcp.{WriteCommand}
+import akka.io.Tcp.WriteCommand
 
 package object rendering {
   private[can] def toTcpWriteCommand(data: HttpData, ack: Tcp.Event): Tcp.WriteCommand = {
@@ -37,7 +37,7 @@ package object rendering {
       }
     }
 
-    val commands = generateTcpCommands(data, ack, List()).reverse
+    val commands = generateTcpCommands(data, ack, List())
     commands.tail ++: commands.head
   }
 
