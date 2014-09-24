@@ -18,14 +18,28 @@ package spray.can
 
 import spray.http.HttpData
 import akka.io.Tcp
+import scala.annotation.tailrec
+import akka.io.Tcp.{WriteCommand}
 
 package object rendering {
-  private[can] def toTcpWriteCommand(data: HttpData, ack: Tcp.Event): Tcp.WriteCommand =
-    data match {
-      case HttpData.Empty                ⇒ Tcp.Write.empty
-      case HttpData.Compound(head, tail) ⇒ toTcpWriteCommand(head, Tcp.NoAck) +: toTcpWriteCommand(tail, ack)
-      case x: HttpData.SimpleNonEmpty    ⇒ toTcpWriteCommand(x, ack)
+  private[can] def toTcpWriteCommand(data: HttpData, ack: Tcp.Event): Tcp.WriteCommand = {
+
+    /**
+     * A tail recursive loop to prevent stack overflow for large messages.
+     * @return a list of commands that should be combined to create the WriteCommand.
+     */
+    @tailrec
+    def generateTcpCommands(data: HttpData, ack: Tcp.Event, writeCommands: List[WriteCommand]): List[WriteCommand] = {
+      data match {
+        case HttpData.Empty                ⇒ Tcp.Write.empty :: writeCommands
+        case x: HttpData.SimpleNonEmpty    ⇒ toTcpWriteCommand(x, ack) :: writeCommands
+        case HttpData.Compound(head, tail) ⇒ generateTcpCommands(tail, ack, toTcpWriteCommand(head, Tcp.NoAck) :: writeCommands)
+      }
     }
+
+    val commands = generateTcpCommands(data, ack, List()).reverse
+    commands.tail ++: commands.head
+  }
 
   private[can] def toTcpWriteCommand(data: HttpData.SimpleNonEmpty, ack: Tcp.Event): Tcp.SimpleWriteCommand =
     data match {
