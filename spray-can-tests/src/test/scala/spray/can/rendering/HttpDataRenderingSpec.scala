@@ -29,6 +29,12 @@ class HttpDataRenderingSpec extends Specification {
         toTcpWriteCommand(HttpData(bytes) +: HttpData(file, 1000, 500), CustomAck) ===
           (Tcp.Write(bytes) +:
             Tcp.WriteFile(file.getCanonicalPath, 1000, 500, CustomAck))
+      "Lots of data" in {
+        val lotsOfData = (0 to 4000).foldLeft(HttpData(bytes)) {
+          (all,_) => HttpData(bytes) +: all
+        }
+        toTcpWriteCommand(lotsOfData, CustomAck) must not(throwA[StackOverflowError])
+        // Calling equals on the result will throw a StackOverflowError.
       }
     }
   }
